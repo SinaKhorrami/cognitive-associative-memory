@@ -31,8 +31,9 @@ class EpisodicMemoryLayer(object):
             winner.similarity_threshold = distance_to_winner
         else:
             winner.weight = winner.weight + (input_pattern - winner.weight) / winner.represented_patterns_number
-            runner_up.weight = runner_up.weight + (input_pattern - runner_up.weight) / (winner.represented_patterns_number * 100)
             winner.similarity_threshold = (winner.similarity_threshold + distance_to_winner) / 2
+            if runner_up is not None:
+                runner_up.weight = runner_up.weight + (input_pattern - runner_up.weight) / (winner.represented_patterns_number * 100)
 
         # TODO: Add Connection to connection set and prune old edges
 
@@ -41,7 +42,9 @@ class EpisodicMemoryLayer(object):
         return np.linalg.norm(first_pattern-second_pattern)
 
     def _find_winner_and_runner_up(self, input_pattern, subnetwork):
-        # TODO: Check Algorithm
+        if len(subnetwork) == 1:
+            return subnetwork[0], None
+
         winner = subnetwork[0]
         min_distance = self._find_distance(input_pattern, winner.weight)
 
@@ -51,7 +54,7 @@ class EpisodicMemoryLayer(object):
                 min_distance = node_distance
                 winner = node
 
-        runner_up = subnetwork[0]
+        runner_up = subnetwork[0] if subnetwork[0] != winner else subnetwork[1]
         second_min_distance = self._find_distance(input_pattern, runner_up)
 
         for node in subnetwork:
