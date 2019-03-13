@@ -14,5 +14,7 @@ class EpisodicMemoryNode(object):
 class SemanticMemoryNode(object):
     """ Author: Sina """
 
-    def __init__(self):
+    def __init__(self, weight, class_name):
         super().__init__()
+        self.weight = weight
+        self.class_name = class_name

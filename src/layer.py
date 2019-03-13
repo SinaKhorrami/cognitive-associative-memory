@@ -1,6 +1,7 @@
 import numpy as np
 
-from src.node import EpisodicMemoryNode
+from src.node import EpisodicMemoryNode, SemanticMemoryNode
+from src.link import EpisodicMemoryLink, SemanticMemoryLink
 
 
 class EpisodicMemoryLayer(object):
@@ -11,6 +12,7 @@ class EpisodicMemoryLayer(object):
         self.node_set = list()
         self.subnetwork_set = dict()
         self.connection_set = list()
+        self.max_age = 10
 
     def store(self, input_pattern, input_class):
         if input_class not in self.subnetwork_set:
@@ -35,7 +37,28 @@ class EpisodicMemoryLayer(object):
             if runner_up is not None:
                 runner_up.weight = runner_up.weight + (input_pattern - runner_up.weight) / (winner.represented_patterns_number * 100)
 
-        # TODO: Add Connection to connection set and prune old edges
+        if runner_up is None:
+            return
+
+        connection = None
+        for c in self.connection_set:
+            if winner in c.nodes and runner_up in c.nodes:
+                connection = c
+                break
+        if connection is None:
+            connection = EpisodicMemoryLink(node_1=winner, node_2=runner_up)
+
+        for c in self.connection_set:
+            if winner in c.nodes and runner_up not in c.nodes:
+                c.age += 1
+
+        self.connection_set.append(connection)
+
+    def remove_old_edges(self):
+        self.connection_set = [c for c in self.connection_set if c.age <= self.max_age]
+
+    def remove_isolated_nodes(self):
+        pass
 
     @staticmethod
     def _find_distance(first_pattern, second_pattern):
@@ -78,3 +101,27 @@ class SemanticMemoryLayer(object):
 
     def __init__(self):
         super().__init__()
+        self.node_set = list()
+        self.arrow_edge_set = list()
+
+    def update_node(self, input_pattern, input_class, frequent_winner):
+        insert = True
+        for node in self.node_set:
+            if input_class == node.class_name:
+                insert = False
+                node.weight = frequent_winner
+                break
+        if insert:
+            node = SemanticMemoryNode(weight=input_pattern, class_name=input_class)
+            self.node_set.append(node)
+
+    def update_arrow_edge(self, key_class, response_class):
+        insert = True
+        for arrow_edge in self.arrow_edge_set:
+            if arrow_edge.key == key_class and arrow_edge.response == response_class:
+                insert = False
+                arrow_edge.strength += 1
+                break
+        if insert:
+            link = SemanticMemoryLink(key_class=key_class, response_class=response_class)
+            self.arrow_edge_set.append(link)
