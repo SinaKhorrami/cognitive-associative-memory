@@ -7,17 +7,17 @@ from src.link import EpisodicMemoryLink, SemanticMemoryLink
 class EpisodicMemoryLayer(object):
     """ Author: Sina """
 
-    def __init__(self):
+    def __init__(self, max_age=10):
         super().__init__()
         self.node_set = list()
         self.subnetwork_set = dict()
         self.connection_set = list()
-        self.max_age = 10
+        self.max_age = max_age
 
     def store(self, input_pattern, input_class):
         if input_class not in self.subnetwork_set:
             self._add_new_subnetwork(input_pattern=input_pattern, input_class=input_class)
-            return
+            return self._get_subnetwork_frequent_winner(input_class=input_class)
 
         winner, runner_up = self._find_winner_and_runner_up(
             input_pattern=input_pattern,
@@ -38,7 +38,7 @@ class EpisodicMemoryLayer(object):
                 runner_up.weight = runner_up.weight + (input_pattern - runner_up.weight) / (winner.represented_patterns_number * 100)
 
         if runner_up is None:
-            return
+            return self._get_subnetwork_frequent_winner(input_class=input_class)
 
         connection = None
         for c in self.connection_set:
@@ -53,6 +53,8 @@ class EpisodicMemoryLayer(object):
                 c.age += 1
 
         self.connection_set.append(connection)
+
+        return self._get_subnetwork_frequent_winner(input_class=input_class)
 
     def remove_old_edges(self):
         self.connection_set = [c for c in self.connection_set if c.age <= self.max_age]
@@ -95,6 +97,30 @@ class EpisodicMemoryLayer(object):
             input_class: [node]
         })
 
+    def _get_subnetwork_frequent_winner(self, input_class):
+        subnetwork = self.subnetwork_set.get(input_class)
+        frequent_winner = subnetwork[0]
+        for node in subnetwork[1:]:
+            if node.represented_patterns_number > frequent_winner.represented_patterns_number:
+                frequent_winner = node
+
+        return frequent_winner
+
+    def recall(self, input_pattern):
+        min_distance_node = self.node_set[0]
+        min_distance = self._find_distance(first_pattern=input_pattern, second_pattern=min_distance_node)
+        min_distance = min_distance*min_distance
+        for node in self.node_set[1:]:
+            distance = self._find_distance(first_pattern=input_pattern, second_pattern=node)
+            distance = distance*distance
+            if distance < min_distance:
+                min_distance = distance
+                min_distance_node = node
+        if min_distance > min_distance_node.similarity_threshold:
+            return min_distance_node, True
+
+        return min_distance_node, False
+
 
 class SemanticMemoryLayer(object):
     """ Author: Sina """
@@ -125,3 +151,26 @@ class SemanticMemoryLayer(object):
         if insert:
             link = SemanticMemoryLink(key_class=key_class, response_class=response_class)
             self.arrow_edge_set.append(link)
+
+    def recall_associated_classes(self, key_class_name):
+        associated_classes = list()
+
+        for link in self.arrow_edge_set:
+            if link.key == key_class_name:
+                associated_classes.append(link.response)
+
+        associated_classes.sort(key=lambda n: n.strength, reverse=True)
+        return associated_classes
+
+    def recall(self, key_class_name, associated_classes=None):
+        if associated_classes is None:
+            associated_classes = self.recall_associated_classes(key_class_name=key_class_name)
+
+        associated_patterns = [None for _ in associated_classes]
+
+        for node in self.node_set:
+            if node.class_name in associated_classes:
+                index = associated_classes.index(node.class_name)
+                associated_patterns[index] = node
+
+        return associated_patterns
