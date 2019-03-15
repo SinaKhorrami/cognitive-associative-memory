@@ -108,10 +108,10 @@ class EpisodicMemoryLayer(object):
 
     def recall(self, input_pattern):
         min_distance_node = self.node_set[0]
-        min_distance = self._find_distance(first_pattern=input_pattern, second_pattern=min_distance_node)
+        min_distance = self._find_distance(first_pattern=input_pattern, second_pattern=min_distance_node.weight)
         min_distance = min_distance*min_distance
         for node in self.node_set[1:]:
-            distance = self._find_distance(first_pattern=input_pattern, second_pattern=node)
+            distance = self._find_distance(first_pattern=input_pattern, second_pattern=node.weight)
             distance = distance*distance
             if distance < min_distance:
                 min_distance = distance
@@ -157,9 +157,10 @@ class SemanticMemoryLayer(object):
 
         for link in self.arrow_edge_set:
             if link.key == key_class_name:
-                associated_classes.append(link.response)
+                associated_classes.append(link)
 
         associated_classes.sort(key=lambda n: n.strength, reverse=True)
+        associated_classes = [item.response for item in associated_classes]
         return associated_classes
 
     def recall(self, key_class_name, associated_classes=None):
